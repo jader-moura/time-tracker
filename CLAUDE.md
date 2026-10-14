@@ -2,6 +2,8 @@
 
 Guidance for Claude when working in this repo. Read this before writing code.
 
+The behaviour contract lives in `docs/SPEC.md`; the step order lives in `docs/PLAN.md`.
+
 ## Project
 
 **Work Tracker**: a small desktop app to track my own work sessions.
@@ -36,7 +38,9 @@ src/
 - `core/` must stay pure and deterministic. Time is injected (`now: () => number`), never read from `Date.now()` directly.
 - `main/` adapts the OS to `core/`. Keep each adapter small and behind an interface:
   - `ScreenshotService` (uses `desktopCapturer`)
-  - `InputCounter` (uses `uiohook-napi`; fallback: idle time via `powerMonitor.getSystemIdleTime()`)
+  - `InputCounter` (uses `uiohook-napi`; fallback: idle time via `powerMonitor.getSystemIdleTime()`, which
+    measures presence, not clicks - label it "activity" in the UI and name the active
+    implementation in the status sent to the renderer)
   - `Storage` (JSON file + PNG folder under `app.getPath('userData')`)
 - Renderer talks to main only through the preload API. `contextIsolation: true`, `nodeIntegration: false`.
 - Co-locate tests: `scheduler.ts` -> `scheduler.test.ts`.
@@ -96,6 +100,7 @@ CI runs lint, typecheck, test, build on every push and PR (Ubuntu). All must pas
 
 ## OS notes
 
+- Windows: no permission grants are needed for screen capture or global clicks.
 - macOS: needs Screen Recording (screenshots) and Accessibility (global clicks) permissions.
 - Linux Wayland blocks global input and screen capture; X11 works.
 - Document these in the README rather than working around them in code.

@@ -27,6 +27,11 @@ Order is core → main → renderer, per `CLAUDE.md`.
   `core/time.ts` (`startOfLocalDay`, `formatDuration`) landed here rather than in step 2,
   because a scaffold with no test cannot show that the test runner works.
 - Step 2 therefore starts at `core/session.ts`.
+- **Step 2 done.** `core/session.ts` (`isActive`, `endOf`, `elapsedMs`, `overlapMs`,
+  `totalForDay`) plus `startOfNextLocalDay`. 34 tests green.
+  Day length is derived from local midnights, not from adding 24 hours, so days that
+  cross a daylight-saving change stay correct; both directions are tested by swapping
+  `process.env.TZ` to `America/New_York`.
 
 ## Environment notes
 

@@ -86,6 +86,7 @@ Single window, one CSS file:
 ```ts
 // time.ts
 startOfLocalDay(ts: number): number;
+startOfNextLocalDay(ts: number): number;      // local midnight after ts
 formatDuration(ms: number): string;             // "01:02:03"
 
 // session.ts
@@ -120,6 +121,10 @@ Time is always a parameter. No `Date.now()`, no Electron, no Node, no React in `
 | active session, now 09:30 | elapsed 30 min, today's total includes it |
 | two sessions same day | totals add |
 | `formatDuration(3723000)` | `"01:02:03"` |
+| local day that springs forward | 23 h long, so a full day of tracking totals 23 h |
+| local day that falls back | 25 h long |
+| session covering a whole middle day | that day total is the full day |
+| window end touched exactly | counts nothing, windows are half-open |
 
 `main/` adapters are not unit tested — they are thin and verified by hand. The README
 says so and lists the manual checks.

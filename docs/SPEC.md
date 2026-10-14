@@ -14,7 +14,7 @@ Anything not listed here is out of scope.
 ## 2. Data model
 
 ```ts
-type Session = { id: string; startedAt: number; endedAt: number | null };
+type Session = { id: string; startedAt: number; endedAt: number | null; job: string };
 type Block = { sessionId: string; startedAt: number; clicks: number };
 type Shot = { sessionId: string; takenAt: number; fileName: string };
 ```
@@ -38,6 +38,25 @@ so the folder can move.
 - `stop` when idle: no-op.
 - App quit with an active session: stop it first (`endedAt = now`), then quit.
 - Session elapsed = `(endedAt ?? now) - startedAt`.
+
+### 3.1a Jobs
+
+What you are working on, recorded against the session.
+
+- A job is free text. There is no job list, no management UI, and no validation beyond
+  normalising the text: trim the ends, collapse internal whitespace runs, cap at 80
+  characters.
+- It is set when the session starts and is fixed for that session's lifetime. Changing
+  job means stopping and starting again, which keeps one-active-session-at-a-time intact
+  and keeps every block and screenshot unambiguously owned by one job.
+- An empty job is allowed and means untitled. Tracking time is the point; labelling it
+  is optional and must never block Start.
+- The field pre-fills with the job of the most recently started session, because the
+  common case is carrying on with the same work.
+
+**Migration.** Sessions written before this feature have no `job` field. They load as
+untitled rather than being discarded: the storage guard treats a missing `job` as `''`.
+Requiring the field would have silently dropped every existing session on first load.
 
 ### 3.2 Today's total
 Sum over all sessions of the overlap between the session and today's local-midnight
@@ -94,6 +113,8 @@ startOfNextLocalDay(ts: number): number;      // local midnight after ts
 formatDuration(ms: number): string;             // "01:02:03"
 
 // session.ts
+normaliseJob(raw: string): string;
+lastUsedJob(sessions: Session[]): string;
 elapsedMs(session: Session, now: number): number;
 overlapMs(session: Session, from: number, to: number, now: number): number;
 totalForDay(sessions: Session[], dayStart: number, now: number): number;
@@ -137,6 +158,10 @@ Time is always a parameter. No `Date.now()`, no Electron, no Node, no React in `
 | clicks at UTC+05:45 | blocks stay on :00, :10, :20 of the wall clock |
 | gap between recorded blocks | series fills it with zero, nothing is stored |
 | addClick on existing blocks | input array is not mutated |
+| job `  invoice   migration  ` | stored as `invoice migration` |
+| job of 200 characters | capped at 80 |
+| session row with no `job` field | loads as untitled, is not discarded |
+| last used job | taken from the latest `startedAt`, not array order |
 | session stopped mid-schedule | nextShotAt and msUntilNextShot are both null |
 | woken after two missed due times | the latest is owed, the earlier is dropped |
 
@@ -164,6 +189,11 @@ decisions get tests.
   Session start, session stop and each screenshot flush immediately.
 - A session found still open at startup was left by a crash. It is closed at its own
   `startedAt` rather than being credited the time the machine was off.
+- A leading byte order mark is stripped before parsing. Notepad and PowerShell both
+  write UTF-8 with a BOM, and `JSON.parse` throws on it, so without this a file saved
+  from an editor is quarantined and the app starts with no history.
+- Only one instance may run. Two would both own the file and the last writer would win,
+  discarding the other's sessions. A second launch focuses the first window and exits.
 - A capture failure is remembered in memory only, so the next tick does not retry it in
   a loop, and the schedule resumes at the following due time.
 

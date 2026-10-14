@@ -109,3 +109,31 @@ Order is core → main → renderer, per `CLAUDE.md`.
 
 All seven steps are complete and the gate is green. `docs/SPEC.md` is the behaviour
 contract; the README covers running it, the OS notes and the manual checks.
+
+## Step 8: job labels (added after the original seven)
+
+`CLAUDE.md` listed projects and tags as out of scope "unless asked"; this was asked for,
+so the scope list now names the job label as in scope and still excludes a managed job
+list, tags, notes and per-job reporting.
+
+A job is free text on the session, normalised and fixed for that session's lifetime,
+pre-filled from the last one used. Three bugs came out of building it, all found by
+running the app rather than by reading the code:
+
+1. **Legacy files would have been wiped.** The storage guard asserted the shape of each
+   row, so adding a required `job` field would have made every session already on disk
+   fail validation and be dropped. It now builds a clean session and treats a missing
+   job as untitled.
+2. **A byte order mark looked like corruption.** The verification harness wrote the test
+   file with PowerShell's `Out-File -Encoding utf8`, which adds a BOM, exactly as Notepad
+   does. `JSON.parse` throws on it, so the file was quarantined and the app started
+   empty. Reading this file by hand is a documented use, so the BOM is now stripped.
+3. **Two instances fought over the data file.** An orphaned app process from an earlier
+   test kept running and overwrote the file with its own state. There was no single
+   instance lock, so any second launch could silently discard history.
+
+Also worth recording: the BOM fix was briefly committed to by two broken test setups,
+where the escape sequence was mangled by tooling into a literal `FEFF` string. Both the
+code and the test agreed with each other and the test passed while verifying nothing.
+The constant is now built with `String.fromCharCode(0xfeff)` so it cannot be rewritten by
+escape handling, and removing the strip fails the test as it should.

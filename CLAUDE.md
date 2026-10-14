@@ -55,11 +55,13 @@ src/
 - Show last screenshot thumbnail and timestamp
 - Persist sessions and blocks to a local JSON file
 - Visible indicator while tracking
+- A free-text job label on each session, pre-filled with the last one used
 
 **Out of scope (do not implement unless asked)**
 - Installers, code signing, notarization, auto-update
 - Accounts, cloud sync, export, reports
-- Projects, tags, notes, keyboard counting
+- Projects as a managed list, tags, notes, keyboard counting
+- Per-job totals or any other breakdown (the job is recorded and shown, not reported on)
 - Screenshot blurring, deletion UI, retention policy
 - Multi-monitor selection (capture the primary display)
 

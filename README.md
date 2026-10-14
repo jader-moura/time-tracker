@@ -4,6 +4,7 @@ A small desktop app that tracks my own work sessions. Everything stays on this m
 
 - Start and stop a work session, with elapsed time for the session and a running total
   for today
+- Labels each session with the job you are working on, pre-filled with the last one used
 - Counts mouse clicks per 10-minute block as a rough activity signal
 - Takes a screenshot of the primary display every 10 minutes while a session runs
 - Stores sessions, blocks and screenshots locally; nothing is uploaded anywhere
@@ -109,15 +110,21 @@ below, which were run against the built app.
 
 With `SCREENSHOT_INTERVAL_MS=15000` so captures are quick to see:
 
-1. Start — the button becomes Stop and the Tracking badge appears.
+1. Type a job, then Start — the button becomes Stop, the Tracking badge appears, and the
+   job field becomes a fixed label for the rest of the session.
 2. The session clock and today's total both advance once a second.
 3. Click inside the window a few times — the count rises and lands in the current block.
 4. Wait one interval — a thumbnail appears with its timestamp, and a PNG shows up in
    `screenshots/`.
-5. Stop — the badge disappears, the session clock resets, today's total is kept.
+5. Stop — the badge disappears, the session clock resets, today's total is kept, and the
+   job field is editable again, pre-filled with the job just used.
 6. Reopen `work-tracker.json` — the session has an `endedAt`, and the blocks are there.
 7. Close the window mid-session and reopen — the session was closed on quit rather than
    left open.
+8. Launch the app a second time while it is running — the second one exits and focuses
+   the window already open.
+9. Open `work-tracker.json` in Notepad and save it — it still loads. Notepad adds a byte
+   order mark, which an earlier version treated as corruption.
 
 ## Operating system notes
 
@@ -142,6 +149,8 @@ should not be read as a click count.
 - Block labels show hours and minutes, so an interval under a minute makes consecutive
   blocks look identically labelled. Only affects short intervals used for testing.
 - The activity list shows the current session, so it empties when you stop.
+- A session's job is fixed once started. Changing job means stopping and starting, which
+  is what keeps every block and screenshot owned by exactly one job.
 - `vitest` 3.2.7 carries three advisories via `tinypool` and `@vitest/mocker`. 3.2.7 is the
   newest 3.x and the fix is a major bump that pulls in `vite` 8, which breaks
   `electron-vite`'s peer range. It is a dev-only test runner and is never shipped, so it is

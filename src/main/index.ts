@@ -50,13 +50,34 @@ const publish = (status: Status): void => {
 }
 
 const registerHandlers = (service: TrackerService): void => {
-  ipcMain.handle(channels.start, () => service.start())
+  // The job arrives from the renderer, so it is checked before it is trusted.
+  ipcMain.handle(channels.start, (_event, job: unknown) =>
+    service.start(typeof job === 'string' ? job : '')
+  )
   ipcMain.handle(channels.stop, () => service.stop())
   ipcMain.handle(channels.status, () => service.status())
   ipcMain.handle(channels.thumbnail, () => service.thumbnail())
 }
 
+// Two instances would both own work-tracker.json and the last writer would win,
+// silently discarding the other's sessions. Only one instance tracks; a second
+// launch hands focus to the window already running and exits.
+const isOnlyInstance = app.requestSingleInstanceLock()
+
+if (!isOnlyInstance) {
+  app.quit()
+}
+
+app.on('second-instance', () => {
+  if (mainWindow === null || mainWindow.isDestroyed()) return
+
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.focus()
+})
+
 void app.whenReady().then(async () => {
+  if (!isOnlyInstance) return
+
   const service = createTrackerService({
     storage: createFileStorage(dataFilePath(app.getPath('userData'))),
     screenshots: createScreenshotService(screenshotDirPath(app.getPath('userData'))),

@@ -6,7 +6,7 @@ import { dueShotAt } from '../core/scheduler'
 import type { ShotSchedule } from '../core/scheduler'
 import { startOfLocalDay } from '../core/time'
 import { totalForDay } from '../core/session'
-import type { ActivitySource, Status } from '../preload/api'
+import type { ActivitySource, ShotView, Status } from '../preload/api'
 import type { Storage, TrackerData } from './storage'
 import { emptyData } from './storage'
 
@@ -41,6 +41,7 @@ export type TrackerService = {
   start: () => Promise<Status>
   stop: () => Promise<Status>
   status: () => Status
+  thumbnail: () => ShotView | null
   dispose: () => Promise<void>
 }
 
@@ -54,7 +55,7 @@ export const createTrackerService = (options: TrackerOptions): TrackerService =>
 
   let data: TrackerData = emptyData()
   let timer: NodeJS.Timeout | null = null
-  let lastShot: Status['lastShot'] = null
+  let lastShot: ShotView | null = null
   let dirty = false
   let lastSavedAt = 0
   let capturing = false
@@ -101,7 +102,7 @@ export const createTrackerService = (options: TrackerOptions): TrackerService =>
           }))
         : [],
       totalClicks: session ? totalClicks(data.blocks, session.id) : 0,
-      lastShot,
+      lastShotAt: lastShot?.takenAt ?? null,
       activitySource: input.source,
       intervalMs
     }
@@ -253,7 +254,7 @@ export const createTrackerService = (options: TrackerOptions): TrackerService =>
     if (dirty) await save()
   }
 
-  return { load, start, stop, status, dispose }
+  return { load, start, stop, status, thumbnail: () => lastShot, dispose }
 }
 
 const describe = (error: unknown): string =>

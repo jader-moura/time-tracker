@@ -220,7 +220,9 @@ describe('tracker service', () => {
     await service.start()
     await runFor(TEN_MIN)
 
-    expect(service.status().lastShot).toEqual({
+    expect(service.status().lastShotAt).toBe(at('2026-01-15T09:10:00Z'))
+    // The image itself is fetched on demand, not pushed with every tick.
+    expect(service.thumbnail()).toEqual({
       takenAt: at('2026-01-15T09:10:00Z'),
       dataUrl: 'data:image/png;base64,xx'
     })

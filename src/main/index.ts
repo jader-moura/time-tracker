@@ -3,8 +3,9 @@ import { join } from 'node:path'
 import { parseIntervalMs } from '../core/config'
 import { channels } from '../preload/api'
 import type { Status } from '../preload/api'
-import { nullInputCounter, nullScreenshotService } from './adapters'
-import { createFileStorage, dataFilePath } from './storage'
+import { createInputCounter } from './input'
+import { createScreenshotService } from './screenshots'
+import { createFileStorage, dataFilePath, screenshotDirPath } from './storage'
 import { createTrackerService } from './tracker'
 import type { TrackerService } from './tracker'
 
@@ -52,13 +53,14 @@ const registerHandlers = (service: TrackerService): void => {
   ipcMain.handle(channels.start, () => service.start())
   ipcMain.handle(channels.stop, () => service.stop())
   ipcMain.handle(channels.status, () => service.status())
+  ipcMain.handle(channels.thumbnail, () => service.thumbnail())
 }
 
 void app.whenReady().then(async () => {
   const service = createTrackerService({
     storage: createFileStorage(dataFilePath(app.getPath('userData'))),
-    screenshots: nullScreenshotService,
-    input: nullInputCounter,
+    screenshots: createScreenshotService(screenshotDirPath(app.getPath('userData'))),
+    input: await createInputCounter(),
     notify: publish,
     now: () => Date.now(),
     intervalMs: parseIntervalMs(process.env['SCREENSHOT_INTERVAL_MS'])

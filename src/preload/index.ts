@@ -3,7 +3,7 @@ import { channels } from './api'
 import type { ShotView, Status, WorkTrackerApi } from './api'
 
 const api: WorkTrackerApi = {
-  start: () => ipcRenderer.invoke(channels.start) as Promise<Status>,
+  start: (job) => ipcRenderer.invoke(channels.start, job) as Promise<Status>,
   stop: () => ipcRenderer.invoke(channels.stop) as Promise<Status>,
   status: () => ipcRenderer.invoke(channels.status) as Promise<Status>,
   thumbnail: () => ipcRenderer.invoke(channels.thumbnail) as Promise<ShotView | null>,

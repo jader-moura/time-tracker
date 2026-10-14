@@ -5,7 +5,7 @@ import { mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createFileStorage, dataFilePath, emptyData } from './storage'
+import { BYTE_ORDER_MARK, createFileStorage, dataFilePath, emptyData } from './storage'
 import type { TrackerData } from './storage'
 import { createTrackerService } from './tracker'
 import type { Capture, InputCounter, TrackerService } from './tracker'
@@ -43,9 +43,14 @@ describe('file storage', () => {
   it('round-trips data', async () => {
     const storage = createFileStorage(dataFilePath(await tempDir()))
 
-    await storage.save({ ...emptyData(), sessions: [{ id: 'a', startedAt: 1000, endedAt: 2000 }] })
+    await storage.save({
+      ...emptyData(),
+      sessions: [{ id: 'a', startedAt: 1000, endedAt: 2000, job: 'old work' }]
+    })
 
-    expect((await storage.load()).sessions).toEqual([{ id: 'a', startedAt: 1000, endedAt: 2000 }])
+    expect((await storage.load()).sessions).toEqual([
+      { id: 'a', startedAt: 1000, endedAt: 2000, job: 'old work' }
+    ])
   })
 
   it('returns empty data when the file is missing', async () => {
@@ -76,8 +81,74 @@ describe('file storage', () => {
     )
 
     const loaded = await createFileStorage(path).load()
-    expect(loaded.sessions).toEqual([{ id: 'good', startedAt: 1, endedAt: null }])
+    expect(loaded.sessions).toEqual([{ id: 'good', startedAt: 1, endedAt: null, job: '' }])
     expect(loaded.blocks).toEqual([])
+  })
+
+  // Files written before jobs existed must survive the upgrade. Rejecting rows
+  // without a job field would have deleted every session already recorded.
+  it('upgrades sessions written before jobs existed', async () => {
+    const path = dataFilePath(await tempDir())
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 1,
+        sessions: [
+          { id: 'before', startedAt: 1000, endedAt: 2000 },
+          { id: 'after', startedAt: 3000, endedAt: 4000, job: 'invoice migration' }
+        ],
+        blocks: [],
+        shots: []
+      }),
+      'utf8'
+    )
+
+    expect((await createFileStorage(path).load()).sessions).toEqual([
+      { id: 'before', startedAt: 1000, endedAt: 2000, job: '' },
+      { id: 'after', startedAt: 3000, endedAt: 4000, job: 'invoice migration' }
+    ])
+  })
+
+  // Notepad on Windows saves UTF-8 with a BOM, and this file is meant to be
+  // readable by hand, so a BOM must not look like corruption.
+  it('reads a file saved with a byte order mark', async () => {
+    const dir = await tempDir()
+    const path = dataFilePath(dir)
+    await writeFile(
+      path,
+      BYTE_ORDER_MARK +
+        JSON.stringify({
+          version: 1,
+          sessions: [{ id: 'kept', startedAt: 1000, endedAt: 2000, job: 'editing by hand' }],
+          blocks: [],
+          shots: []
+        }),
+      'utf8'
+    )
+
+    const loaded = await createFileStorage(path).load()
+
+    expect(loaded.sessions).toEqual([
+      { id: 'kept', startedAt: 1000, endedAt: 2000, job: 'editing by hand' }
+    ])
+    // Nothing was quarantined, because nothing was wrong with it.
+    expect((await readdir(dir)).some((name) => name.includes('.corrupt-'))).toBe(false)
+  })
+
+  it('normalises a job that was hand-edited in the file', async () => {
+    const path = dataFilePath(await tempDir())
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 1,
+        sessions: [{ id: 'a', startedAt: 1, endedAt: 2, job: '  spaced    out  ' }],
+        blocks: [],
+        shots: []
+      }),
+      'utf8'
+    )
+
+    expect((await createFileStorage(path).load()).sessions[0]?.job).toBe('spaced out')
   })
 })
 
@@ -142,7 +213,7 @@ describe('tracker service', () => {
 
   it('writes an active session to disk on start', async () => {
     await service.load()
-    const status = await service.start()
+    const status = await service.start('')
 
     expect(status.isTracking).toBe(true)
     expect(status.sessionStartedAt).toBe(at(START))
@@ -152,18 +223,67 @@ describe('tracker service', () => {
     expect(onDisk.sessions[0]?.endedAt).toBeNull()
   })
 
+  it('records the job against the session, normalised', async () => {
+    await service.load()
+    const status = await service.start('  invoice   migration  ')
+
+    expect(status.job).toBe('invoice migration')
+    expect((await readData(path)).sessions[0]?.job).toBe('invoice migration')
+  })
+
+  it('allows an untitled session', async () => {
+    await service.load()
+    const status = await service.start('')
+
+    expect(status.isTracking).toBe(true)
+    expect(status.job).toBe('')
+  })
+
+  it('reports no job once stopped, but offers it as the next one', async () => {
+    await service.load()
+    await service.start('invoice migration')
+    await runFor(60000)
+    const stopped = await service.stop()
+
+    expect(stopped.job).toBe('')
+    expect(stopped.lastJob).toBe('invoice migration')
+  })
+
+  it('offers the most recent job after a restart', async () => {
+    await service.load()
+    await service.start('first job')
+    await runFor(60000)
+    await service.stop()
+    await service.start('second job')
+    await runFor(60000)
+    await service.stop()
+
+    expect(service.status().lastJob).toBe('second job')
+  })
+
+  it('keeps each session job separate', async () => {
+    await service.load()
+    await service.start('morning job')
+    await runFor(60000)
+    await service.stop()
+    await service.start('afternoon job')
+
+    const sessions = (await readData(path)).sessions
+    expect(sessions.map((session) => session.job)).toEqual(['morning job', 'afternoon job'])
+  })
+
   it('ignores a second start while already tracking', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(60000)
-    await service.start()
+    await service.start('')
 
     expect((await readData(path)).sessions).toHaveLength(1)
   })
 
   it('counts clicks into the right block and persists them', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
 
     expect(input.running()).toBe(true)
     input.fire(at('2026-01-15T09:03:00Z'))
@@ -193,7 +313,7 @@ describe('tracker service', () => {
 
   it('ignores clicks once the session has stopped', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await service.stop()
 
     input.fire(at('2026-01-15T09:05:00Z'))
@@ -203,7 +323,7 @@ describe('tracker service', () => {
 
   it('captures one screenshot per interval and none at the start', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
 
     await runFor(TEN_MIN - 1000)
     expect(captured).toEqual([])
@@ -217,7 +337,7 @@ describe('tracker service', () => {
 
   it('records captured screenshots and exposes the last thumbnail', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(TEN_MIN)
 
     expect(service.status().lastShotAt).toBe(at('2026-01-15T09:10:00Z'))
@@ -239,7 +359,7 @@ describe('tracker service', () => {
 
   it('does not fire a burst of captures after a long sleep', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
 
     await sleepFor(TEN_MIN * 5)
 
@@ -248,7 +368,7 @@ describe('tracker service', () => {
 
   it('stops cleanly: releases the hook, cancels shots, writes the end time', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(300000)
 
     const stopped = await service.stop()
@@ -263,7 +383,7 @@ describe('tracker service', () => {
 
   it('stopping twice is harmless', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(60000)
     await service.stop()
     const again = await service.stop()
@@ -274,12 +394,12 @@ describe('tracker service', () => {
 
   it('adds up today across two sessions', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(1800000)
     await service.stop()
 
     await runFor(1800000)
-    await service.start()
+    await service.start('')
     await runFor(900000)
     const status = await service.stop()
 
@@ -288,7 +408,7 @@ describe('tracker service', () => {
 
   it('stops an active session when the app quits', async () => {
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(TEN_MIN)
 
     await service.dispose()
@@ -299,7 +419,7 @@ describe('tracker service', () => {
   it('closes a session left open by a crash instead of letting it run', async () => {
     await createFileStorage(path).save({
       ...emptyData(),
-      sessions: [{ id: 'crashed', startedAt: at(START), endedAt: null }]
+      sessions: [{ id: 'crashed', startedAt: at(START), endedAt: null, job: 'interrupted' }]
     })
     vi.setSystemTime(at('2026-01-16T23:00:00Z'))
 
@@ -312,7 +432,7 @@ describe('tracker service', () => {
   it('keeps tracking when a capture fails, and does not retry it every tick', async () => {
     captureFails = true
     await service.load()
-    await service.start()
+    await service.start('')
 
     await runFor(TEN_MIN + 5000)
 
@@ -324,7 +444,7 @@ describe('tracker service', () => {
   it('resumes capturing at the next due time after a failure', async () => {
     captureFails = true
     await service.load()
-    await service.start()
+    await service.start('')
     await runFor(TEN_MIN)
 
     captureFails = false

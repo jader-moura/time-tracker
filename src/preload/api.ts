@@ -21,12 +21,15 @@ export type Status = {
   blocks: BlockView[]
   totalClicks: number
   lastShotAt: number | null
+  job: string
+  // The job to offer next time, carried so the input can pre-fill while idle.
+  lastJob: string
   activitySource: ActivitySource
   intervalMs: number
 }
 
 export type WorkTrackerApi = {
-  start: () => Promise<Status>
+  start: (job: string) => Promise<Status>
   stop: () => Promise<Status>
   status: () => Promise<Status>
   // Fetched only when lastShotAt changes, so the per-tick payload stays small.

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { addClick, blockSeries, blocksForSession, totalClicks } from '../core/activity'
-import { elapsedMs, isActive } from '../core/session'
+import { elapsedMs, isActive, lastUsedJob, normaliseJob } from '../core/session'
 import type { Session } from '../core/session'
 import { dueShotAt } from '../core/scheduler'
 import type { ShotSchedule } from '../core/scheduler'
@@ -38,7 +38,7 @@ export type TrackerOptions = {
 
 export type TrackerService = {
   load: () => Promise<void>
-  start: () => Promise<Status>
+  start: (job: string) => Promise<Status>
   stop: () => Promise<Status>
   status: () => Status
   thumbnail: () => ShotView | null
@@ -103,6 +103,8 @@ export const createTrackerService = (options: TrackerOptions): TrackerService =>
         : [],
       totalClicks: session ? totalClicks(data.blocks, session.id) : 0,
       lastShotAt: lastShot?.takenAt ?? null,
+      job: session?.job ?? '',
+      lastJob: lastUsedJob(data.sessions),
       activitySource: input.source,
       intervalMs
     }
@@ -204,14 +206,17 @@ export const createTrackerService = (options: TrackerOptions): TrackerService =>
     }
   }
 
-  const start = async (): Promise<Status> => {
+  const start = async (job: string): Promise<Status> => {
     if (activeSession()) return status()
 
     const at = now()
     lastAttemptAt = null
     data = {
       ...data,
-      sessions: [...data.sessions, { id: randomUUID(), startedAt: at, endedAt: null }]
+      sessions: [
+        ...data.sessions,
+        { id: randomUUID(), startedAt: at, endedAt: null, job: normaliseJob(job) }
+      ]
     }
 
     input.start(onInput)

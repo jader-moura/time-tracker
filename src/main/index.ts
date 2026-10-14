@@ -57,6 +57,7 @@ const registerHandlers = (service: TrackerService): void => {
   ipcMain.handle(channels.stop, () => service.stop())
   ipcMain.handle(channels.status, () => service.status())
   ipcMain.handle(channels.thumbnail, () => service.thumbnail())
+  ipcMain.handle(channels.history, () => service.history())
 }
 
 // Two instances would both own work-tracker.json and the last writer would win,

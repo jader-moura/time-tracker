@@ -272,6 +272,35 @@ describe('tracker service', () => {
     expect(sessions.map((session) => session.job)).toEqual(['morning job', 'afternoon job'])
   })
 
+  it('reports history per day and per job', async () => {
+    await service.load()
+    await service.start('invoice migration')
+    await runFor(1800000)
+    await service.stop()
+    await service.start('code review')
+    await runFor(900000)
+    await service.stop()
+
+    expect(service.history()).toEqual([
+      {
+        dayStart: Date.parse('2026-01-15T00:00:00Z'),
+        totalMs: 2700000,
+        jobs: [
+          { job: 'invoice migration', totalMs: 1800000 },
+          { job: 'code review', totalMs: 900000 }
+        ]
+      }
+    ])
+  })
+
+  it('includes the running session in history', async () => {
+    await service.load()
+    await service.start('invoice migration')
+    await runFor(600000)
+
+    expect(service.history()[0]?.jobs).toEqual([{ job: 'invoice migration', totalMs: 600000 }])
+  })
+
   it('ignores a second start while already tracking', async () => {
     await service.load()
     await service.start('')

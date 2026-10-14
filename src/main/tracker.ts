@@ -4,9 +4,10 @@ import { elapsedMs, isActive, lastUsedJob, normaliseJob } from '../core/session'
 import type { Session } from '../core/session'
 import { dueShotAt } from '../core/scheduler'
 import type { ShotSchedule } from '../core/scheduler'
+import { recentDays } from '../core/history'
 import { startOfLocalDay } from '../core/time'
 import { totalForDay } from '../core/session'
-import type { ActivitySource, ShotView, Status } from '../preload/api'
+import type { ActivitySource, DayTotal, ShotView, Status } from '../preload/api'
 import type { Storage, TrackerData } from './storage'
 import { emptyData } from './storage'
 
@@ -42,11 +43,13 @@ export type TrackerService = {
   stop: () => Promise<Status>
   status: () => Status
   thumbnail: () => ShotView | null
+  history: () => DayTotal[]
   dispose: () => Promise<void>
 }
 
 const TICK_MS = 1000
 const SAVE_EVERY_MS = 10000
+const HISTORY_DAYS = 7
 
 export const createTrackerService = (options: TrackerOptions): TrackerService => {
   const { storage, screenshots, input, notify, now, intervalMs } = options
@@ -259,7 +262,9 @@ export const createTrackerService = (options: TrackerOptions): TrackerService =>
     if (dirty) await save()
   }
 
-  return { load, start, stop, status, thumbnail: () => lastShot, dispose }
+  const history = (): DayTotal[] => recentDays(data.sessions, now(), HISTORY_DAYS)
+
+  return { load, start, stop, status, thumbnail: () => lastShot, history, dispose }
 }
 
 const describe = (error: unknown): string =>

@@ -102,8 +102,11 @@ totalClicks(blocks: Block[], sessionId: string): number;
 blockSeries(blocks: Block[], sessionId: string, from: number, to: number, intervalMs: number): Block[];
 
 // scheduler.ts
-nextShotAt(startedAt: number, intervalMs: number, lastShotAt: number | null): number;
-dueShotAt(startedAt: number, now: number, intervalMs: number, lastShotAt: number | null): number | null;
+type ShotSchedule = { startedAt; endedAt; intervalMs; lastShotAt };
+
+nextShotAt(schedule: ShotSchedule): number | null;
+dueShotAt(schedule: ShotSchedule, now: number): number | null;
+msUntilNextShot(schedule: ShotSchedule, now: number): number | null;
 ```
 
 Time is always a parameter. No `Date.now()`, no Electron, no Node, no React in `core/`.
@@ -130,6 +133,8 @@ Time is always a parameter. No `Date.now()`, no Electron, no Node, no React in `
 | clicks at UTC+05:45 | blocks stay on :00, :10, :20 of the wall clock |
 | gap between recorded blocks | series fills it with zero, nothing is stored |
 | addClick on existing blocks | input array is not mutated |
+| session stopped mid-schedule | nextShotAt and msUntilNextShot are both null |
+| woken after two missed due times | the latest is owed, the earlier is dropped |
 
 `main/` adapters are not unit tested — they are thin and verified by hand. The README
 says so and lists the manual checks.

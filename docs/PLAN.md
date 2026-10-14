@@ -38,6 +38,11 @@ Order is core → main → renderer, per `CLAUDE.md`.
   being stored. The local-midnight anchoring is pinned by a `Asia/Kathmandu` (UTC+05:45)
   test: it is the only case that distinguishes it from flooring the epoch, and it fails
   if the anchoring is dropped.
+- **Step 4 done.** `core/scheduler.ts` (`nextShotAt`, `dueShotAt`, `msUntilNextShot`).
+  78 tests green; `core/` is complete.
+  These take a `ShotSchedule` record rather than the positional arguments the spec first
+  sketched, so `endedAt` is part of the input and "stopping cancels pending shots"
+  is a core test instead of behaviour that only exists in `main/`.
 - Added `.gitattributes` (`* text=auto eol=lf`) to stop the CRLF warnings, since CI is Ubuntu.
 
 ## Environment notes
@@ -47,3 +52,9 @@ Order is core → main → renderer, per `CLAUDE.md`.
 - The `electron` binary did not download during `npm install` on this machine. Fix:
   `node node_modules/electron/install.js`. `npm run build` and `npm test` work without
   it; `npm run dev` does not. Watch for the same thing in CI after `npm ci`.
+
+## Carried into step 5
+
+- `SCREENSHOT_INTERVAL_MS` must be validated where the env var is read. `core/` divides
+  by `intervalMs`, so a `0` or unparseable value would yield `Infinity` or `NaN` and
+  stall the schedule. Validation belongs at that boundary, not in `core/`.

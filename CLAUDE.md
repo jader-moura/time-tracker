@@ -56,10 +56,11 @@ src/
 - Persist sessions and blocks to a local JSON file
 - Visible indicator while tracking
 - A free-text job label on each session, pre-filled with the last one used
+- Hours for the last 7 days, each day split by job
 
 **Out of scope (do not implement unless asked)**
 - Installers, code signing, notarization, auto-update
-- Accounts, cloud sync, export, reports
+- Accounts, cloud sync, export, reports beyond the last 7 days in the window
 - Projects as a managed list, tags, notes, keyboard counting
 - Per-job totals or any other breakdown (the job is recorded and shown, not reported on)
 - Screenshot blurring, deletion UI, retention policy

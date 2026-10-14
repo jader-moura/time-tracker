@@ -5,6 +5,7 @@ A small desktop app that tracks my own work sessions. Everything stays on this m
 - Start and stop a work session, with elapsed time for the session and a running total
   for today
 - Labels each session with the job you are working on, pre-filled with the last one used
+- Shows hours for the last 7 days, each day broken down by job
 - Counts mouse clicks per 10-minute block as a rough activity signal
 - Takes a screenshot of the primary display every 10 minutes while a session runs
 - Stores sessions, blocks and screenshots locally; nothing is uploaded anywhere
@@ -119,6 +120,7 @@ With `SCREENSHOT_INTERVAL_MS=15000` so captures are quick to see:
 5. Stop — the badge disappears, the session clock resets, today's total is kept, and the
    job field is editable again, pre-filled with the job just used.
 6. Reopen `work-tracker.json` — the session has an `endedAt`, and the blocks are there.
+   The session also appears under Last 7 days, under its job.
 7. Close the window mid-session and reopen — the session was closed on quit rather than
    left open.
 8. Launch the app a second time while it is running — the second one exits and focuses
@@ -148,7 +150,11 @@ should not be read as a click count.
   capture, even though the PNG is already on disk.
 - Block labels show hours and minutes, so an interval under a minute makes consecutive
   blocks look identically labelled. Only affects short intervals used for testing.
-- The activity list shows the current session, so it empties when you stop.
+- The activity list shows the current session, so it empties when you stop. The history
+  list below it is where finished sessions show up.
+- History covers 7 days. Older sessions stay in the file but are not shown anywhere.
+- Screenshots are never deleted, so the folder grows by roughly 11 MB per tracked
+  8-hour day at the default interval. There is no retention policy.
 - A session's job is fixed once started. Changing job means stopping and starting, which
   is what keeps every block and screenshot owned by exactly one job.
 - `vitest` 3.2.7 carries three advisories via `tinypool` and `@vitest/mocker`. 3.2.7 is the
@@ -157,5 +163,29 @@ should not be read as a click count.
   pinned deliberately.
 
 Deliberately out of scope: installers, code signing, auto-update, accounts, cloud sync,
-export, reports, projects, tags, notes, keyboard counting, screenshot blurring or
-retention policy, and multi-monitor selection.
+export, reporting beyond the 7-day window, a managed project list, tags, notes, keyboard
+counting, screenshot blurring or retention policy, and multi-monitor selection.
+
+## Hours per job and per day
+
+Everything is kept: every session, with its job, start and end, plus clicks per block and
+an index of every screenshot. Nothing is pruned.
+
+The app surfaces the last 7 days, newest first, each day totalled and split by job:
+
+```
+Today         02:14:00
+   invoice migration     01:12:00
+   code review           01:02:00
+Yesterday     06:48:00
+   invoice migration     05:20:00
+   untitled              01:00:00
+   standup               00:28:00
+```
+
+A session that runs past midnight is credited to each day by the part it spent there, so
+23:30 to 00:45 shows as 30 minutes on the first day and 45 on the second rather than 75
+minutes on either. Days with nothing tracked are left out.
+
+For anything beyond 7 days, the data is in `work-tracker.json` and every session carries
+its job, so it can be queried directly.

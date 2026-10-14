@@ -75,3 +75,23 @@ Order is core → main → renderer, per `CLAUDE.md`.
   capture. Reading the last PNG back from disk on load would close that.
 - `nullInputCounter` reports `activitySource: 'none'`; the real counters replace it.
 - `screenshotDirPath` is defined but unused until the capture service exists.
+
+- **Step 6 done.** `main/screenshots.ts` (`desktopCapturer`, primary display) and
+  `main/input.ts` (`uiohook-napi`, with the `powerMonitor` fallback). Placeholders gone.
+  The native hook was the risk in this plan and it cost nothing: `uiohook-napi` ships
+  prebuilt binaries including `win32-x64`, so the install took 2 seconds with no
+  compiler. Verified in Electron with a throwaway probe: a 231 kB PNG on disk, a
+  `data:image/png` thumbnail, `activitySource: 'clicks'`, and the hook attaching and
+  detaching without throwing. The time-box was never reached.
+  The probe also showed the thumbnail is about 61 kB, which the tick was about to push
+  every second, so the image moved behind a `thumbnail()` call.
+
+## Known issues
+
+- `vitest@3.2.7` carries three advisories (one moderate, two critical) via `tinypool`
+  and `@vitest/mocker`. 3.2.7 is the newest 3.x and the fix is a major bump, which would
+  pull `vite` 8 and break the `electron-vite` peer range. It is a dev-only test runner,
+  never shipped, so it is left pinned and recorded here rather than fixed by forcing the
+  dependency tree apart.
+- The thumbnail is held in memory, so after a restart the preview is blank until the
+  next capture even though the PNG is on disk.

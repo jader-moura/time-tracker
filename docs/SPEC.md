@@ -58,8 +58,10 @@ An active session counts up to `now`.
 ### 3.4 Screenshots
 - While a session runs, a shot is due at `startedAt + n * interval` for `n = 1, 2, 3…`.
   No shot at `startedAt` itself.
-- Primary display only. PNG, written straight to disk; the renderer never receives
-  image bytes beyond the last thumbnail.
+- Primary display only. The full-resolution PNG goes straight to disk. The renderer
+  gets a 320px-wide thumbnail, and only when it asks: `Status` carries `lastShotAt`,
+  and `thumbnail()` returns the image. Pushing the image with every tick would have
+  meant about 61 kB a second over the bridge and a PNG decode per tick in the UI.
 - Stopping cancels every pending shot. A due time that passed while the machine was
   asleep is skipped, not backfilled — at most one shot per tick.
 - A capture failure is logged (message only, never image data) and the schedule continues.
@@ -76,7 +78,9 @@ Single window, one CSS file:
 ### 3.6 Click counting and its fallback
 `InputCounter` is an interface with two implementations:
 1. `uiohookInputCounter` — real mouse-click counts via `uiohook-napi`.
-2. `idleInputCounter` — fallback when the native hook cannot install. It samples
+2. `idleInputCounter` - fallback when the native hook cannot install. On Windows the
+   native hook loads from a prebuilt binary and needs no compiler, so this is the
+   path for Wayland and for macOS without Accessibility permission. It samples
    `powerMonitor.getSystemIdleTime()` on a fixed tick and counts *active samples*, not
    clicks. The UI must label the number as "activity" in this mode, because the units
    differ. Which implementation is live is part of the status main sends to the renderer.

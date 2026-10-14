@@ -98,6 +98,8 @@ totalForDay(sessions: Session[], dayStart: number, now: number): number;
 blockStartFor(ts: number, intervalMs: number): number;
 addClick(blocks: Block[], sessionId: string, ts: number, intervalMs: number): Block[];
 blocksForSession(blocks: Block[], sessionId: string): Block[];
+totalClicks(blocks: Block[], sessionId: string): number;
+blockSeries(blocks: Block[], sessionId: string, from: number, to: number, intervalMs: number): Block[];
 
 // scheduler.ts
 nextShotAt(startedAt: number, intervalMs: number, lastShotAt: number | null): number;
@@ -125,6 +127,9 @@ Time is always a parameter. No `Date.now()`, no Electron, no Node, no React in `
 | local day that falls back | 25 h long |
 | session covering a whole middle day | that day total is the full day |
 | window end touched exactly | counts nothing, windows are half-open |
+| clicks at UTC+05:45 | blocks stay on :00, :10, :20 of the wall clock |
+| gap between recorded blocks | series fills it with zero, nothing is stored |
+| addClick on existing blocks | input array is not mutated |
 
 `main/` adapters are not unit tested — they are thin and verified by hand. The README
 says so and lists the manual checks.

@@ -32,6 +32,13 @@ Order is core → main → renderer, per `CLAUDE.md`.
   Day length is derived from local midnights, not from adding 24 hours, so days that
   cross a daylight-saving change stay correct; both directions are tested by swapping
   `process.env.TZ` to `America/New_York`.
+- **Step 3 done.** `core/activity.ts` (`blockStartFor`, `addClick`, `blocksForSession`,
+  `totalClicks`, `blockSeries`). 57 tests green.
+  `blockSeries` zero-fills gaps so the UI gets a continuous series without empty blocks
+  being stored. The local-midnight anchoring is pinned by a `Asia/Kathmandu` (UTC+05:45)
+  test: it is the only case that distinguishes it from flooring the epoch, and it fails
+  if the anchoring is dropped.
+- Added `.gitattributes` (`* text=auto eol=lf`) to stop the CRLF warnings, since CI is Ubuntu.
 
 ## Environment notes
 

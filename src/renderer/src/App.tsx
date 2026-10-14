@@ -1,9 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
-import { formatDuration } from '../../core/time'
-import type { ActivitySource, ShotView, Status } from '../../preload/api'
+import { formatDuration, startOfLocalDay } from '../../core/time'
+import type { ActivitySource, DayTotal, ShotView, Status } from '../../preload/api'
+
+// How often the history list is refreshed while a session is running. The list
+// changes slowly, so it is fetched rather than pushed with every tick.
+const HISTORY_REFRESH_MS = 30000
 
 const formatClock = (ts: number): string =>
   new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+const formatDayLabel = (dayStart: number, now: number): string => {
+  const today = startOfLocalDay(now)
+  if (dayStart === today) return 'Today'
+  if (dayStart === startOfLocalDay(today - 1)) return 'Yesterday'
+
+  return new Date(dayStart).toLocaleDateString([], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short'
+  })
+}
 
 const activityLabel = (source: ActivitySource): string => {
   if (source === 'clicks') return 'Clicks'
@@ -33,6 +49,21 @@ export const App = (): React.JSX.Element => {
     setJob(status.isTracking ? status.job : status.lastJob)
     setJobPrefilled(true)
   }, [status, jobPrefilled])
+
+  const [history, setHistory] = useState<DayTotal[]>([])
+  const tracking = status?.isTracking ?? false
+
+  // Refetched when tracking starts or stops, and slowly while it runs so today's
+  // row keeps up without putting the whole list on the one-second tick.
+  useEffect(() => {
+    const refresh = (): void => void window.workTracker.history().then(setHistory)
+    refresh()
+
+    if (!tracking) return
+
+    const timer = setInterval(refresh, HISTORY_REFRESH_MS)
+    return () => clearInterval(timer)
+  }, [tracking])
 
   const lastShotAt = status?.lastShotAt ?? null
 
@@ -126,6 +157,34 @@ export const App = (): React.JSX.Element => {
                 <span className="time">{formatClock(block.startedAt)}</span>
                 <span className="bar" style={{ width: `${(block.clicks / busiest) * 100}%` }} />
                 <span className="count">{block.clicks}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section>
+        <h2>Last 7 days</h2>
+        {history.length === 0 ? (
+          <p className="muted">Nothing tracked yet.</p>
+        ) : (
+          <ul className="history">
+            {history.map((entry) => (
+              <li key={entry.dayStart}>
+                <div className="day">
+                  <span>{formatDayLabel(entry.dayStart, Date.now())}</span>
+                  <span className="dayTotal">{formatDuration(entry.totalMs)}</span>
+                </div>
+                <ul>
+                  {entry.jobs.map((jobTotal) => (
+                    <li key={jobTotal.job} className="jobRow">
+                      <span className={jobTotal.job === '' ? 'muted' : undefined}>
+                        {jobTotal.job === '' ? 'untitled' : jobTotal.job}
+                      </span>
+                      <span className="jobTotal">{formatDuration(jobTotal.totalMs)}</span>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>

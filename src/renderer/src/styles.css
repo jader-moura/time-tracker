@@ -1,9 +1,11 @@
 :root {
   --bg: #16181d;
   --panel: #1e2127;
+  --line: #2b2f37;
   --text: #e8eaed;
   --muted: #9aa0a6;
   --accent: #4f9d69;
+  --stop: #b3523f;
   color-scheme: dark;
 }
 
@@ -21,15 +23,182 @@ body {
     'Segoe UI',
     sans-serif;
   font-size: 14px;
+  user-select: none;
 }
 
 .app {
-  padding: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 h1 {
-  margin: 0 0 16px;
-  font-size: 16px;
+  margin: 0;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgb(79 157 105 / 15%);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+
+.times {
+  display: flex;
+  gap: 10px;
+}
+
+.times > div {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.elapsed,
+.total {
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.total {
+  color: var(--muted);
+}
+
+button {
+  width: 100%;
+  padding: 11px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+
+button.start {
+  background: var(--accent);
+}
+
+button.stop {
+  background: var(--stop);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.blocks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 150px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.blocks li {
+  display: grid;
+  grid-template-columns: 44px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  height: 6px;
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+img {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: block;
 }

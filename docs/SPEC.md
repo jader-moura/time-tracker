@@ -136,8 +136,32 @@ Time is always a parameter. No `Date.now()`, no Electron, no Node, no React in `
 | session stopped mid-schedule | nextShotAt and msUntilNextShot are both null |
 | woken after two missed due times | the latest is owed, the earlier is dropped |
 
-`main/` adapters are not unit tested — they are thin and verified by hand. The README
-says so and lists the manual checks.
+## 5a. What in `main/` is tested
+
+The original rule was that nothing in `main/` is tested because it is all thin adapters.
+That holds for the parts that only wrap an OS call, and not for the two that carry logic:
+
+- **Tested** (`main/tracker.test.ts`, no Electron imported): `tracker.ts` — session
+  lifecycle, click attribution, capture scheduling, crash recovery, failure handling —
+  and `storage.ts` — atomic writes, quarantine, row validation.
+- **Not tested, manual only**: `ScreenshotService` (`desktopCapturer`), `InputCounter`
+  (`uiohook-napi`, `powerMonitor`), and the window/IPC wiring in `index.ts`. These are
+  genuinely thin and need a real desktop. The README lists the manual checks.
+
+The line is whether a file decides anything. The first version of the tracker shipped a
+bug the compiler accepted — the block list and the click total could disagree — so the
+decisions get tests.
+
+## 5b. Durability rules
+
+- Saves are serialised and each write uses its own temp file. Two overlapping saves
+  otherwise share one temp name and the second rename fails.
+- Clicks are flushed at most every 10 s, so a hard kill can lose up to 10 s of clicks.
+  Session start, session stop and each screenshot flush immediately.
+- A session found still open at startup was left by a crash. It is closed at its own
+  `startedAt` rather than being credited the time the machine was off.
+- A capture failure is remembered in memory only, so the next tick does not retry it in
+  a loop, and the schedule resumes at the following due time.
 
 ## 6. Deviations from CLAUDE.md worth knowing
 

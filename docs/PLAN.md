@@ -58,3 +58,20 @@ Order is core → main → renderer, per `CLAUDE.md`.
 - `SCREENSHOT_INTERVAL_MS` must be validated where the env var is read. `core/` divides
   by `intervalMs`, so a `0` or unparseable value would yield `Infinity` or `NaN` and
   stall the schedule. Validation belongs at that boundary, not in `core/`.
+
+- **Step 5 done.** `core/config.ts` (interval validation), `main/storage.ts`,
+  `main/tracker.ts`, `main/adapters.ts` (placeholders for step 6), the preload bridge
+  (`src/preload/api.ts` holds the contract both sides share) and the main wiring with
+  quit cleanup. 106 tests green; the app boots clean.
+  Two bugs were caught by driving the real code rather than by reading it:
+  the status payload could report a click total that disagreed with the block list, and
+  two overlapping saves raced on a single temp filename and lost a write.
+  `tracker.ts` and `storage.ts` are now unit tested, which `CLAUDE.md` originally said
+  `main/` would not be; that rule was written for thin adapters and these are not thin.
+
+## Still open for step 6
+
+- `lastShot` lives in memory, so the thumbnail is blank after a restart until the next
+  capture. Reading the last PNG back from disk on load would close that.
+- `nullInputCounter` reports `activitySource: 'none'`; the real counters replace it.
+- `screenshotDirPath` is defined but unused until the capture service exists.

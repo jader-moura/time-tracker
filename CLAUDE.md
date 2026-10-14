@@ -83,7 +83,7 @@ src/
   - a click at 09:09:59 lands in the 09:00 block; one at 09:10:00 lands in the 09:10 block
   - stopping a session cancels pending screenshots
   - a session spanning midnight splits correctly into each day's total
-- `main/` adapters are not unit tested; they are thin and covered by manual testing. Say so in the README.
+- In `main/`, test whatever decides something. `tracker.ts` and `storage.ts` carry real logic and import no Electron, so they are unit tested with a fake clock and a temp directory. The genuinely thin adapters -- `ScreenshotService`, `InputCounter`, and the window and IPC wiring -- are not unit tested and are covered by the manual checks listed in the README.
 - No E2E tests.
 
 ## Commands

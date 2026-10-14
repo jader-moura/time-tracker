@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { elapsedMs, endOf, isActive, overlapMs, totalForDay } from './session'
+import {
+  elapsedMs,
+  endOf,
+  isActive,
+  lastUsedJob,
+  normaliseJob,
+  overlapMs,
+  totalForDay
+} from './session'
 import type { Session } from './session'
 import { startOfLocalDay } from './time'
 
@@ -9,13 +17,15 @@ const at = (iso: string): number => Date.parse(iso)
 const finished = (startedAt: string, endedAt: string): Session => ({
   id: 's1',
   startedAt: at(startedAt),
-  endedAt: at(endedAt)
+  endedAt: at(endedAt),
+  job: ''
 })
 
 const active = (startedAt: string): Session => ({
   id: 's2',
   startedAt: at(startedAt),
-  endedAt: null
+  endedAt: null,
+  job: ''
 })
 
 describe('isActive', () => {
@@ -145,5 +155,69 @@ describe('totalForDay', () => {
     expect(totalForDay(sessions, day('2026-01-15T12:00:00Z'), at('2026-01-16T09:00:00Z'))).toBe(
       86400000
     )
+  })
+})
+
+describe('normaliseJob', () => {
+  it('keeps ordinary text as it is', () => {
+    expect(normaliseJob('invoice migration')).toBe('invoice migration')
+  })
+
+  it('trims the ends', () => {
+    expect(normaliseJob('   invoice migration   ')).toBe('invoice migration')
+  })
+
+  it('collapses internal whitespace runs', () => {
+    expect(normaliseJob('invoice     migration')).toBe('invoice migration')
+  })
+
+  it('collapses tabs and newlines pasted in', () => {
+    expect(normaliseJob('invoice\t\nmigration')).toBe('invoice migration')
+  })
+
+  it('allows an empty job', () => {
+    expect(normaliseJob('')).toBe('')
+  })
+
+  it('treats whitespace only as empty', () => {
+    expect(normaliseJob('    ')).toBe('')
+  })
+
+  it('caps the length at 80 characters', () => {
+    expect(normaliseJob('x'.repeat(200))).toBe('x'.repeat(80))
+  })
+})
+
+describe('lastUsedJob', () => {
+  it('is empty with no sessions', () => {
+    expect(lastUsedJob([])).toBe('')
+  })
+
+  it('takes the job of the most recently started session', () => {
+    const sessions: Session[] = [
+      { id: 'a', startedAt: at('2026-01-15T09:00:00Z'), endedAt: null, job: 'morning' },
+      { id: 'b', startedAt: at('2026-01-15T14:00:00Z'), endedAt: null, job: 'afternoon' }
+    ]
+
+    expect(lastUsedJob(sessions)).toBe('afternoon')
+  })
+
+  // Storage order is not guaranteed, so this must not just read the last element.
+  it('ignores array order and uses startedAt', () => {
+    const sessions: Session[] = [
+      { id: 'b', startedAt: at('2026-01-15T14:00:00Z'), endedAt: null, job: 'afternoon' },
+      { id: 'a', startedAt: at('2026-01-15T09:00:00Z'), endedAt: null, job: 'morning' }
+    ]
+
+    expect(lastUsedJob(sessions)).toBe('afternoon')
+  })
+
+  it('returns empty when the latest session was untitled', () => {
+    const sessions: Session[] = [
+      { id: 'a', startedAt: at('2026-01-15T09:00:00Z'), endedAt: null, job: 'morning' },
+      { id: 'b', startedAt: at('2026-01-15T14:00:00Z'), endedAt: null, job: '' }
+    ]
+
+    expect(lastUsedJob(sessions)).toBe('')
   })
 })

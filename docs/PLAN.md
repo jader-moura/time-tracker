@@ -95,3 +95,17 @@ Order is core → main → renderer, per `CLAUDE.md`.
   dependency tree apart.
 - The thumbnail is held in memory, so after a restart the preview is blank until the
   next capture even though the PNG is on disk.
+
+- **Step 7 done.** Renderer UI and README. 106 tests green, gate green.
+  Verified against the running app by driving the renderer over the DevTools protocol:
+  start and stop, the badge, both clocks ticking, a capture appearing after one interval
+  with its PNG on disk, and today's total surviving a stop.
+  CDP clicks are synthetic browser events, so the native hook correctly ignores them and
+  they could not verify click counting. That was checked separately with OS-level clicks
+  sent into the app's own window: 5 clicks produced "Clicks · 5 this session", landed in
+  the interval-aligned block, and persisted to the JSON file.
+
+## Done
+
+All seven steps are complete and the gate is green. `docs/SPEC.md` is the behaviour
+contract; the README covers running it, the OS notes and the manual checks.

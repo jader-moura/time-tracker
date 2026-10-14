@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Block } from '../core/activity'
+import { normaliseJob } from '../core/session'
 import type { Session } from '../core/session'
 
 export type Shot = {
@@ -28,14 +29,33 @@ export const emptyData = (): TrackerData => ({
   shots: []
 })
 
+// Written as a char code rather than an escape so it survives tooling that
+// rewrites string escapes, and so it cannot sit invisibly in the source.
+export const BYTE_ORDER_MARK = String.fromCharCode(0xfeff)
+
+const stripBom = (raw: string): string =>
+  raw.startsWith(BYTE_ORDER_MARK) ? raw.slice(BYTE_ORDER_MARK.length) : raw
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
 
-const isSession = (value: unknown): value is Session =>
-  isRecord(value) &&
-  typeof value.id === 'string' &&
-  typeof value.startedAt === 'number' &&
-  (value.endedAt === null || typeof value.endedAt === 'number')
+// Builds a clean Session rather than asserting the shape of whatever is on disk,
+// so older files are upgraded on read instead of being rejected.
+const toSession = (value: unknown): Session | null => {
+  if (!isRecord(value)) return null
+  if (typeof value.id !== 'string') return null
+  if (typeof value.startedAt !== 'number') return null
+  if (value.endedAt !== null && typeof value.endedAt !== 'number') return null
+
+  return {
+    id: value.id,
+    startedAt: value.startedAt,
+    endedAt: typeof value.endedAt === 'number' ? value.endedAt : null,
+    // Files written before jobs existed have no job field. Treating a missing
+    // job as untitled upgrades them; requiring it would discard every one.
+    job: typeof value.job === 'string' ? normaliseJob(value.job) : ''
+  }
+}
 
 const isBlock = (value: unknown): value is Block =>
   isRecord(value) &&
@@ -52,12 +72,17 @@ const isShot = (value: unknown): value is Shot =>
 // The file is user-editable and survives upgrades, so treat it as untrusted:
 // keep the rows that parse and drop the rest rather than crashing on startup.
 const parseData = (raw: string): TrackerData => {
-  const parsed: unknown = JSON.parse(raw)
+  // Notepad and PowerShell write UTF-8 with a byte order mark, and JSON.parse
+  // throws on it. Without this, saving the file from an editor quarantines it and
+  // the app starts empty.
+  const parsed: unknown = JSON.parse(stripBom(raw))
   if (!isRecord(parsed)) return emptyData()
 
   return {
     version: 1,
-    sessions: Array.isArray(parsed.sessions) ? parsed.sessions.filter(isSession) : [],
+    sessions: Array.isArray(parsed.sessions)
+      ? parsed.sessions.map(toSession).filter((session): session is Session => session !== null)
+      : [],
     blocks: Array.isArray(parsed.blocks) ? parsed.blocks.filter(isBlock) : [],
     shots: Array.isArray(parsed.shots) ? parsed.shots.filter(isShot) : []
   }

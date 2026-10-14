@@ -17,11 +17,22 @@ export const App = (): React.JSX.Element => {
   const [status, setStatus] = useState<Status | null>(null)
   const [shot, setShot] = useState<ShotView | null>(null)
   const [busy, setBusy] = useState(false)
+  const [job, setJob] = useState('')
+  // Pre-fill once from the last job used, then leave the field alone so a tick
+  // arriving mid-typing cannot overwrite what is being typed.
+  const [jobPrefilled, setJobPrefilled] = useState(false)
 
   useEffect(() => {
     void window.workTracker.status().then(setStatus)
     return window.workTracker.onChange(setStatus)
   }, [])
+
+  useEffect(() => {
+    if (status === null || jobPrefilled) return
+
+    setJob(status.isTracking ? status.job : status.lastJob)
+    setJobPrefilled(true)
+  }, [status, jobPrefilled])
 
   const lastShotAt = status?.lastShotAt ?? null
 
@@ -39,11 +50,14 @@ export const App = (): React.JSX.Element => {
     setBusy(true)
     try {
       const tracker = window.workTracker
-      setStatus(status?.isTracking === true ? await tracker.stop() : await tracker.start())
+      const next = status?.isTracking === true ? await tracker.stop() : await tracker.start(job)
+      setStatus(next)
+      // Main normalises the job, so show what was actually recorded.
+      setJob(next.isTracking ? next.job : next.lastJob)
     } finally {
       setBusy(false)
     }
-  }, [status?.isTracking])
+  }, [status?.isTracking, job])
 
   if (status === null) {
     return (
@@ -67,6 +81,21 @@ export const App = (): React.JSX.Element => {
           </span>
         )}
       </header>
+
+      <label className="job">
+        <span className="label">Job</span>
+        <input
+          type="text"
+          value={job}
+          placeholder="What are you working on?"
+          maxLength={80}
+          disabled={status.isTracking || busy}
+          onChange={(event) => setJob(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && !status.isTracking) void toggle()
+          }}
+        />
+      </label>
 
       <section className="times">
         <div>
